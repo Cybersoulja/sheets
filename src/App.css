@@ -127,6 +127,21 @@
   align-items: center;
 }
 
+.file-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file-size {
+  background: #6c757d;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
 .file-type {
   background: #007bff;
   color: white;
@@ -174,9 +189,70 @@
   margin-top: 30px;
 }
 
-.download-queue h2 {
-  color: #333;
+.queue-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.queue-header h2 {
+  color: #333;
+  margin: 0;
+}
+
+.queue-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.auto-download-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.auto-download-toggle input {
+  cursor: pointer;
+}
+
+.download-all-btn, .clear-completed-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.download-all-btn {
+  background: #007bff;
+  color: white;
+}
+
+.download-all-btn:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.clear-completed-btn {
+  background: #6c757d;
+  color: white;
+}
+
+.clear-completed-btn:hover:not(:disabled) {
+  background: #545b62;
+}
+
+.download-all-btn:disabled, .clear-completed-btn:disabled {
+  background: #e9ecef;
+  color: #6c757d;
+  cursor: not-allowed;
 }
 
 .queue-items {
@@ -187,12 +263,92 @@
 
 .queue-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 12px;
+  padding: 15px;
   background: white;
   border-radius: 8px;
   border-left: 4px solid #6c757d;
+  gap: 15px;
+}
+
+.queue-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.queue-details {
+  display: flex;
+  gap: 10px;
+  margin: 5px 0;
+  flex-wrap: wrap;
+}
+
+.queue-size, .queue-type {
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: #e9ecef;
+  color: #495057;
+}
+
+.queue-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.retry-download, .remove-download {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.retry-download {
+  background: #ffc107;
+  color: #212529;
+}
+
+.retry-download:hover {
+  background: #e0a800;
+}
+
+.remove-download {
+  background: #dc3545;
+  color: white;
+}
+
+.remove-download:hover {
+  background: #c82333;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 20px;
+  background: #e9ecef;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  margin: 8px 0;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #007bff;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: 500;
+  color: #212529;
 }
 
 .queue-item.queued {
@@ -262,7 +418,93 @@
 .error-msg {
   color: #dc3545;
   font-size: 12px;
-  max-width: 200px;
+  max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-top: 5px;
+}
+
+.download-history {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 30px;
+}
+
+.download-history h2 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.history-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  border-left: 4px solid #28a745;
+}
+
+.history-title {
+  font-weight: 500;
+  flex: 1;
+  margin-right: 15px;
+}
+
+.history-details {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.history-filename {
+  background: #e9ecef;
+  color: #495057;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.history-size, .history-date {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+@media (max-width: 768px) {
+  .queue-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .queue-controls {
+    justify-content: center;
+  }
+  
+  .queue-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  
+  .queue-actions {
+    justify-content: flex-end;
+  }
+  
+  .history-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  .history-details {
+    justify-content: space-between;
+  }
 }

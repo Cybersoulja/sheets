@@ -9,6 +9,9 @@ function RSSFeedManager() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [downloadQueue, setDownloadQueue] = useState([])
+  const [downloadHistory, setDownloadHistory] = useState([])
+  const [autoDownload, setAutoDownload] = useState(false)
+  const [downloadProgress, setDownloadProgress] = useState({})
 
   // Parse RSS feed from URL using rss-parser
   const fetchRSSFeed = async (url) => {
@@ -98,27 +101,89 @@ function RSSFeedManager() {
   // Add item to download queue
   const addToDownloadQueue = (item) => {
     if (item.hasFile && !downloadQueue.find(q => q.id === item.id)) {
-      setDownloadQueue(prev => [...prev, {
+      const queueItem = {
         id: item.id,
         title: item.title,
         url: item.fileUrl,
         type: item.fileType,
-        status: 'queued'
-      }])
+        size: item.fileSize,
+        status: 'queued',
+        addedAt: new Date().toISOString()
+      }
+      
+      setDownloadQueue(prev => [...prev, queueItem])
+      
+      // Auto-download if enabled
+      if (autoDownload) {
+        setTimeout(() => downloadFile(queueItem), 100)
+      }
     }
   }
 
-  // Download file function
+  // Remove item from download queue
+  const removeFromQueue = (itemId) => {
+    setDownloadQueue(prev => prev.filter(item => item.id !== itemId))
+    setDownloadProgress(prev => {
+      const updated = { ...prev }
+      delete updated[itemId]
+      return updated
+    })
+  }
+
+  // Clear completed downloads from queue
+  const clearCompleted = () => {
+    setDownloadQueue(prev => prev.filter(item => item.status !== 'completed'))
+  }
+
+  // Retry failed download
+  const retryDownload = (queueItem) => {
+    setDownloadQueue(prev => prev.map(item => 
+      item.id === queueItem.id ? { ...item, status: 'queued', error: undefined } : item
+    ))
+    downloadFile(queueItem)
+  }
+
+  // Enhanced download file function with progress tracking
   const downloadFile = async (queueItem) => {
     try {
       setDownloadQueue(prev => prev.map(item => 
         item.id === queueItem.id ? { ...item, status: 'downloading' } : item
       ))
       
+      setDownloadProgress(prev => ({ ...prev, [queueItem.id]: 0 }))
+      
       const response = await fetch(queueItem.url)
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
       
-      const blob = await response.blob()
+      const contentLength = response.headers.get('content-length')
+      const total = parseInt(contentLength, 10)
+      let loaded = 0
+      
+      const reader = response.body.getReader()
+      const stream = new ReadableStream({
+        start(controller) {
+          function pump() {
+            return reader.read().then(({ done, value }) => {
+              if (done) {
+                controller.close()
+                return
+              }
+              
+              loaded += value.byteLength
+              if (total) {
+                const progress = Math.round((loaded / total) * 100)
+                setDownloadProgress(prev => ({ ...prev, [queueItem.id]: progress }))
+              }
+              
+              controller.enqueue(value)
+              return pump()
+            })
+          }
+          return pump()
+        }
+      })
+      
+      const blob = await new Response(stream).blob()
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
@@ -128,15 +193,55 @@ function RSSFeedManager() {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
       
+      // Add to download history
+      const historyItem = {
+        ...queueItem,
+        downloadedAt: new Date().toISOString(),
+        filename: getFilename(queueItem),
+        size: total || blob.size
+      }
+      setDownloadHistory(prev => [historyItem, ...prev.slice(0, 49)]) // Keep last 50
+      
       setDownloadQueue(prev => prev.map(item => 
-        item.id === queueItem.id ? { ...item, status: 'completed' } : item
+        item.id === queueItem.id ? { ...item, status: 'completed', downloadedAt: historyItem.downloadedAt } : item
       ))
+      
+      setDownloadProgress(prev => {
+        const updated = { ...prev }
+        delete updated[queueItem.id]
+        return updated
+      })
+      
     } catch (err) {
       console.error('Download failed:', err)
       setDownloadQueue(prev => prev.map(item => 
         item.id === queueItem.id ? { ...item, status: 'failed', error: err.message } : item
       ))
+      
+      setDownloadProgress(prev => {
+        const updated = { ...prev }
+        delete updated[queueItem.id]
+        return updated
+      })
     }
+  }
+
+  // Download all queued items
+  const downloadAll = async () => {
+    const queuedItems = downloadQueue.filter(item => item.status === 'queued')
+    for (const item of queuedItems) {
+      await downloadFile(item)
+      // Small delay between downloads to avoid overwhelming the server
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+  }
+
+  // Format file size
+  const formatFileSize = (bytes) => {
+    if (!bytes) return ''
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(1024))
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i]
   }
 
   // Safe date formatting function to prevent crashes
@@ -250,7 +355,10 @@ function RSSFeedManager() {
                 
                 {item.hasFile && (
                   <div className="file-info">
-                    <span className="file-type">{item.fileType}</span>
+                    <div className="file-details">
+                      <span className="file-type">{item.fileType || 'Unknown'}</span>
+                      {item.fileSize && <span className="file-size">{formatFileSize(parseInt(item.fileSize))}</span>}
+                    </div>
                     <button 
                       onClick={() => addToDownloadQueue(item)}
                       className="download-btn"
@@ -270,23 +378,95 @@ function RSSFeedManager() {
         </div>
       )}
 
-      {/* Download Queue */}
+      {/* Download Manager */}
       {downloadQueue.length > 0 && (
         <div className="download-queue">
-          <h2>Download Queue ({downloadQueue.length})</h2>
+          <div className="queue-header">
+            <h2>Download Queue ({downloadQueue.length})</h2>
+            <div className="queue-controls">
+              <label className="auto-download-toggle">
+                <input 
+                  type="checkbox" 
+                  checked={autoDownload}
+                  onChange={(e) => setAutoDownload(e.target.checked)}
+                />
+                Auto-download
+              </label>
+              <button 
+                onClick={downloadAll}
+                className="download-all-btn"
+                disabled={!downloadQueue.some(item => item.status === 'queued')}
+              >
+                Download All
+              </button>
+              <button 
+                onClick={clearCompleted}
+                className="clear-completed-btn"
+                disabled={!downloadQueue.some(item => item.status === 'completed')}
+              >
+                Clear Completed
+              </button>
+            </div>
+          </div>
           <div className="queue-items">
             {downloadQueue.map(item => (
               <div key={item.id} className={`queue-item ${item.status}`}>
-                <span className="queue-title">{item.title}</span>
-                <span className="queue-status">{item.status}</span>
-                {item.status === 'queued' && (
-                  <button onClick={() => downloadFile(item)} className="start-download">
-                    Download
-                  </button>
-                )}
-                {item.status === 'failed' && (
-                  <span className="error-msg">{item.error}</span>
-                )}
+                <div className="queue-info">
+                  <span className="queue-title">{item.title}</span>
+                  <div className="queue-details">
+                    <span className="queue-status">{item.status}</span>
+                    {item.size && <span className="queue-size">{formatFileSize(parseInt(item.size))}</span>}
+                    {item.type && <span className="queue-type">{item.type}</span>}
+                  </div>
+                  {item.status === 'downloading' && downloadProgress[item.id] !== undefined && (
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill" 
+                        style={{width: `${downloadProgress[item.id]}%`}}
+                      ></div>
+                      <span className="progress-text">{downloadProgress[item.id]}%</span>
+                    </div>
+                  )}
+                  {item.status === 'failed' && (
+                    <span className="error-msg">{item.error}</span>
+                  )}
+                </div>
+                <div className="queue-actions">
+                  {item.status === 'queued' && (
+                    <button onClick={() => downloadFile(item)} className="start-download">
+                      Download
+                    </button>
+                  )}
+                  {item.status === 'failed' && (
+                    <button onClick={() => retryDownload(item)} className="retry-download">
+                      Retry
+                    </button>
+                  )}
+                  {(item.status === 'queued' || item.status === 'failed') && (
+                    <button onClick={() => removeFromQueue(item.id)} className="remove-download">
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Download History */}
+      {downloadHistory.length > 0 && (
+        <div className="download-history">
+          <h2>Download History ({downloadHistory.length})</h2>
+          <div className="history-items">
+            {downloadHistory.slice(0, 10).map((item, index) => (
+              <div key={`history-${index}`} className="history-item">
+                <span className="history-title">{item.title}</span>
+                <div className="history-details">
+                  <span className="history-filename">{item.filename}</span>
+                  <span className="history-size">{formatFileSize(item.size)}</span>
+                  <span className="history-date">{formatDate(item.downloadedAt)}</span>
+                </div>
               </div>
             ))}
           </div>
