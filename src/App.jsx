@@ -19,6 +19,10 @@ function RSSFeedManager() {
   const [raindropCollections, setRaindropCollections] = useState([])
   const [selectedCollection, setSelectedCollection] = useState('')
   const [raindropSyncEnabled, setRaindropSyncEnabled] = useState(false)
+  const [savedItems, setSavedItems] = useState(new Set())
+  const [savingItems, setSavingItems] = useState(new Set())
+  const [notifications, setNotifications] = useState([])
+  const [syncProgress, setSyncProgress] = useState({ total: 0, completed: 0, isRunning: false })
 
   // Parse RSS feed from URL using rss-parser
   const fetchRSSFeed = async (url) => {
@@ -328,12 +332,34 @@ function RSSFeedManager() {
     }
   }
 
+  // Add notification
+  const addNotification = (message, type = 'info') => {
+    const id = Date.now()
+    const notification = { id, message, type }
+    setNotifications(prev => [...prev, notification])
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id))
+    }, 5000)
+  }
+
   // Save RSS item to Raindrop.io
-  const saveToRaindrop = async (item) => {
+  const saveToRaindrop = async (item, showNotification = true) => {
     if (!raindropToken || !selectedCollection) {
-      alert('Please configure Raindrop.io integration first')
-      return
+      addNotification('Please configure Raindrop.io integration first', 'error')
+      return false
     }
+    
+    // Check if already saved
+    if (savedItems.has(item.link)) {
+      if (showNotification) {
+        addNotification('Item already saved to Raindrop.io', 'info')
+      }
+      return true
+    }
+    
+    setSavingItems(prev => new Set(prev).add(item.link))
     
     try {
       const bookmark = {
@@ -365,10 +391,23 @@ function RSSFeedManager() {
         }
       }
       
-      alert('Successfully saved to Raindrop.io!')
+      setSavedItems(prev => new Set(prev).add(item.link))
+      if (showNotification) {
+        addNotification('Successfully saved to Raindrop.io!', 'success')
+      }
+      return true
     } catch (err) {
       console.error('Failed to save to Raindrop.io:', err)
-      alert('Failed to save to Raindrop.io: ' + err.message)
+      if (showNotification) {
+        addNotification(`Failed to save to Raindrop.io: ${err.message}`, 'error')
+      }
+      return false
+    } finally {
+      setSavingItems(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(item.link)
+        return newSet
+      })
     }
   }
 
@@ -389,6 +428,9 @@ function RSSFeedManager() {
     setRaindropCollections([])
     setSelectedCollection('')
     setRaindropSyncEnabled(false)
+    setSavedItems(new Set())
+    setSavingItems(new Set())
+    setSyncProgress({ total: 0, completed: 0, isRunning: false })
     localStorage.removeItem('raindrop_token')
   }
 
@@ -396,15 +438,38 @@ function RSSFeedManager() {
   const autoSyncToRaindrop = async (items) => {
     if (!raindropSyncEnabled || !raindropToken || !selectedCollection) return
     
-    for (const item of items) {
+    const newItems = items.filter(item => !savedItems.has(item.link))
+    if (newItems.length === 0) return
+    
+    setSyncProgress({ total: newItems.length, completed: 0, isRunning: true })
+    let completed = 0
+    let successful = 0
+    
+    for (const item of newItems) {
       try {
-        await saveToRaindrop(item)
+        const success = await saveToRaindrop(item, false) // Don't show individual notifications
+        if (success) successful++
+        completed++
+        setSyncProgress(prev => ({ ...prev, completed }))
+        
         // Small delay between syncs
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        await new Promise(resolve => setTimeout(resolve, 500))
       } catch (err) {
         console.error('Auto-sync failed for item:', item.title, err)
+        completed++
+        setSyncProgress(prev => ({ ...prev, completed }))
       }
     }
+    
+    setSyncProgress({ total: 0, completed: 0, isRunning: false })
+    addNotification(`Auto-sync complete: ${successful}/${newItems.length} items saved`, 
+                   successful === newItems.length ? 'success' : 'warning')
+  }
+
+  // Sync all new items manually
+  const syncAllNew = async () => {
+    if (!feedItems.length) return
+    await autoSyncToRaindrop(feedItems)
   }
 
   // Safe date formatting function to prevent crashes
@@ -525,6 +590,15 @@ function RSSFeedManager() {
                   />
                   Auto-sync new RSS items
                 </label>
+                {feedItems.length > 0 && (
+                  <button 
+                    onClick={syncAllNew} 
+                    className="sync-all-btn"
+                    disabled={syncProgress.isRunning}
+                  >
+                    {syncProgress.isRunning ? 'Syncing...' : 'Sync All New'}
+                  </button>
+                )}
                 <button onClick={disconnectRaindrop} className="disconnect-btn">
                   Disconnect
                 </button>
@@ -558,7 +632,39 @@ function RSSFeedManager() {
         </div>
       </form>
 
+      {/* Sync Progress */}
+      {syncProgress.isRunning && (
+        <div className="sync-progress">
+          <div className="sync-progress-bar">
+            <div 
+              className="sync-progress-fill" 
+              style={{width: `${(syncProgress.completed / syncProgress.total) * 100}%`}}
+            ></div>
+          </div>
+          <span className="sync-progress-text">
+            Syncing to Raindrop.io: {syncProgress.completed}/{syncProgress.total}
+          </span>
+        </div>
+      )}
+
       {error && <div className="error">{error}</div>}
+
+      {/* Notifications */}
+      {notifications.length > 0 && (
+        <div className="notifications">
+          {notifications.map(notification => (
+            <div key={notification.id} className={`notification ${notification.type}`}>
+              {notification.message}
+              <button 
+                onClick={() => setNotifications(prev => prev.filter(n => n.id !== notification.id))}
+                className="notification-close"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* RSS Feed Items */}
       {feedItems.length > 0 && (
@@ -592,13 +698,21 @@ function RSSFeedManager() {
                     View Original
                   </a>
                   {raindropUser && (
-                    <button 
-                      onClick={() => saveToRaindrop(item)} 
-                      className="save-raindrop-btn"
-                      title="Save to Raindrop.io"
-                    >
-                      Save to Raindrop.io
-                    </button>
+                    <div className="raindrop-item-controls">
+                      {savedItems.has(item.link) ? (
+                        <span className="saved-indicator">✓ Saved</span>
+                      ) : savingItems.has(item.link) ? (
+                        <span className="saving-indicator">⏳ Saving...</span>
+                      ) : (
+                        <button 
+                          onClick={() => saveToRaindrop(item)} 
+                          className="save-raindrop-btn"
+                          title="Save to Raindrop.io"
+                        >
+                          Save to Raindrop.io
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
