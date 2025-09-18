@@ -12,6 +12,13 @@ function RSSFeedManager() {
   const [downloadHistory, setDownloadHistory] = useState([])
   const [autoDownload, setAutoDownload] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState({})
+  
+  // Raindrop.io integration state
+  const [raindropToken, setRaindropToken] = useState(localStorage.getItem('raindrop_token'))
+  const [raindropUser, setRaindropUser] = useState(null)
+  const [raindropCollections, setRaindropCollections] = useState([])
+  const [selectedCollection, setSelectedCollection] = useState('')
+  const [raindropSyncEnabled, setRaindropSyncEnabled] = useState(false)
 
   // Parse RSS feed from URL using rss-parser
   const fetchRSSFeed = async (url) => {
@@ -90,6 +97,11 @@ function RSSFeedManager() {
       })
       
       setFeedItems(items)
+      
+      // Auto-sync to Raindrop.io if enabled
+      if (raindropSyncEnabled && items.length > 0) {
+        autoSyncToRaindrop(items)
+      }
     } catch (err) {
       console.error('Error fetching RSS feed:', err)
       setError(`Failed to fetch RSS feed: ${err.message}. Please check the URL and try again.`)
@@ -244,6 +256,157 @@ function RSSFeedManager() {
     return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i]
   }
 
+  // Raindrop.io API functions
+  const raindropAPI = {
+    baseURL: 'https://api.raindrop.io/rest/v1',
+    
+    // Get user info
+    async getUser(token) {
+      const response = await fetch(`${this.baseURL}/user`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (!response.ok) throw new Error('Failed to get user info')
+      return response.json()
+    },
+    
+    // Get collections
+    async getCollections(token) {
+      const response = await fetch(`${this.baseURL}/collections`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (!response.ok) throw new Error('Failed to get collections')
+      return response.json()
+    },
+    
+    // Create bookmark
+    async createBookmark(token, bookmark) {
+      const response = await fetch(`${this.baseURL}/raindrop`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(bookmark)
+      })
+      if (!response.ok) throw new Error('Failed to create bookmark')
+      return response.json()
+    },
+    
+    // Upload file to bookmark
+    async uploadFile(token, raindropId, file) {
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const response = await fetch(`${this.baseURL}/raindrop/${raindropId}/file`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      })
+      if (!response.ok) throw new Error('Failed to upload file')
+      return response.json()
+    }
+  }
+
+  // Initialize Raindrop.io connection
+  const initializeRaindrop = async () => {
+    if (!raindropToken) return
+    
+    try {
+      const userResponse = await raindropAPI.getUser(raindropToken)
+      setRaindropUser(userResponse.user)
+      
+      const collectionsResponse = await raindropAPI.getCollections(raindropToken)
+      setRaindropCollections(collectionsResponse.items || [])
+      
+      if (collectionsResponse.items && collectionsResponse.items.length > 0) {
+        setSelectedCollection(collectionsResponse.items[0]._id.toString())
+      }
+    } catch (err) {
+      console.error('Failed to initialize Raindrop.io:', err)
+      setRaindropToken(null)
+      localStorage.removeItem('raindrop_token')
+    }
+  }
+
+  // Save RSS item to Raindrop.io
+  const saveToRaindrop = async (item) => {
+    if (!raindropToken || !selectedCollection) {
+      alert('Please configure Raindrop.io integration first')
+      return
+    }
+    
+    try {
+      const bookmark = {
+        link: item.link,
+        title: item.title,
+        excerpt: item.description ? item.description.substring(0, 200) : '',
+        collection: { $id: parseInt(selectedCollection) },
+        tags: ['rss-feed']
+      }
+      
+      const result = await raindropAPI.createBookmark(raindropToken, bookmark)
+      
+      if (result.result && item.hasFile) {
+        // If there's a file, try to upload it
+        try {
+          const fileResponse = await fetch(item.fileUrl)
+          if (fileResponse.ok) {
+            const blob = await fileResponse.blob()
+            const file = new File([blob], getFilename({
+              title: item.title,
+              type: item.fileType,
+              url: item.fileUrl
+            }), { type: item.fileType || 'application/octet-stream' })
+            
+            await raindropAPI.uploadFile(raindropToken, result.item._id, file)
+          }
+        } catch (fileErr) {
+          console.warn('Failed to upload file to Raindrop.io:', fileErr)
+        }
+      }
+      
+      alert('Successfully saved to Raindrop.io!')
+    } catch (err) {
+      console.error('Failed to save to Raindrop.io:', err)
+      alert('Failed to save to Raindrop.io: ' + err.message)
+    }
+  }
+
+  // Connect to Raindrop.io using test token
+  const connectRaindrop = () => {
+    const token = prompt('Enter your Raindrop.io test token:\n(Get one from https://app.raindrop.io/settings/integrations)')
+    
+    if (token) {
+      setRaindropToken(token)
+      localStorage.setItem('raindrop_token', token)
+    }
+  }
+
+  // Disconnect from Raindrop.io
+  const disconnectRaindrop = () => {
+    setRaindropToken(null)
+    setRaindropUser(null)
+    setRaindropCollections([])
+    setSelectedCollection('')
+    setRaindropSyncEnabled(false)
+    localStorage.removeItem('raindrop_token')
+  }
+
+  // Auto-sync RSS items to Raindrop.io
+  const autoSyncToRaindrop = async (items) => {
+    if (!raindropSyncEnabled || !raindropToken || !selectedCollection) return
+    
+    for (const item of items) {
+      try {
+        await saveToRaindrop(item)
+        // Small delay between syncs
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      } catch (err) {
+        console.error('Auto-sync failed for item:', item.title, err)
+      }
+    }
+  }
+
   // Safe date formatting function to prevent crashes
   const formatDate = (dateString) => {
     if (!dateString || dateString.trim() === '') {
@@ -319,9 +482,64 @@ function RSSFeedManager() {
     }
   }
 
+  // Initialize Raindrop.io on component mount
+  useEffect(() => {
+    if (raindropToken) {
+      initializeRaindrop()
+    }
+  }, [raindropToken])
+
   return (
     <div className="rss-manager">
       <h1>Raindrops IO RSS Feed File Download Manager</h1>
+      
+      {/* Raindrop.io Integration */}
+      <div className="raindrop-integration">
+        <h2>Raindrop.io Integration</h2>
+        <div className="raindrop-status">
+          {raindropUser ? (
+            <div className="raindrop-connected">
+              <div className="raindrop-user-info">
+                <span className="user-name">Connected as: {raindropUser.name}</span>
+                <span className="user-email">({raindropUser.email})</span>
+              </div>
+              <div className="raindrop-controls">
+                <div className="collection-selector">
+                  <label>Collection:</label>
+                  <select 
+                    value={selectedCollection} 
+                    onChange={(e) => setSelectedCollection(e.target.value)}
+                  >
+                    {raindropCollections.map(collection => (
+                      <option key={collection._id} value={collection._id}>
+                        {collection.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <label className="auto-sync-toggle">
+                  <input 
+                    type="checkbox" 
+                    checked={raindropSyncEnabled}
+                    onChange={(e) => setRaindropSyncEnabled(e.target.checked)}
+                  />
+                  Auto-sync new RSS items
+                </label>
+                <button onClick={disconnectRaindrop} className="disconnect-btn">
+                  Disconnect
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="raindrop-disconnected">
+              <p>Connect to Raindrop.io to automatically save RSS items as bookmarks</p>
+              <button onClick={connectRaindrop} className="connect-btn">
+                Connect Raindrop.io
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
       
       {/* RSS Feed Input */}
       <form onSubmit={handleSubmit} className="feed-form">
@@ -369,9 +587,20 @@ function RSSFeedManager() {
                   </div>
                 )}
                 
-                <a href={item.link} target="_blank" rel="noopener noreferrer" className="view-link">
-                  View Original
-                </a>
+                <div className="item-actions">
+                  <a href={item.link} target="_blank" rel="noopener noreferrer" className="view-link">
+                    View Original
+                  </a>
+                  {raindropUser && (
+                    <button 
+                      onClick={() => saveToRaindrop(item)} 
+                      className="save-raindrop-btn"
+                      title="Save to Raindrop.io"
+                    >
+                      Save to Raindrop.io
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

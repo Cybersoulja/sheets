@@ -17,6 +17,117 @@
   margin-bottom: 30px;
 }
 
+.raindrop-integration {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 30px;
+  border: 1px solid #dee2e6;
+}
+
+.raindrop-integration h2 {
+  color: #333;
+  margin: 0 0 20px 0;
+  font-size: 20px;
+}
+
+.raindrop-connected {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.raindrop-user-info {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.user-name {
+  font-weight: 500;
+  color: #28a745;
+}
+
+.user-email {
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.raindrop-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  align-items: center;
+}
+
+.collection-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.collection-selector label {
+  font-weight: 500;
+  color: #333;
+}
+
+.collection-selector select {
+  padding: 6px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  background: white;
+  font-size: 14px;
+}
+
+.auto-sync-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.auto-sync-toggle input {
+  cursor: pointer;
+}
+
+.connect-btn, .disconnect-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.connect-btn {
+  background: #28a745;
+  color: white;
+}
+
+.connect-btn:hover {
+  background: #218838;
+}
+
+.disconnect-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.disconnect-btn:hover {
+  background: #c82333;
+}
+
+.raindrop-disconnected {
+  text-align: center;
+  padding: 20px;
+}
+
+.raindrop-disconnected p {
+  color: #6c757d;
+  margin-bottom: 15px;
+}
+
 .feed-form {
   margin-bottom: 30px;
 }
@@ -170,16 +281,43 @@
   cursor: not-allowed;
 }
 
+.item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
 .view-link {
   color: #007bff;
   text-decoration: none;
   font-size: 14px;
-  display: inline-block;
-  margin-top: 10px;
+  padding: 6px 12px;
+  border: 1px solid #007bff;
+  border-radius: 4px;
+  transition: all 0.2s;
 }
 
 .view-link:hover {
-  text-decoration: underline;
+  background: #007bff;
+  color: white;
+  text-decoration: none;
+}
+
+.save-raindrop-btn {
+  padding: 6px 12px;
+  background: #6f42c1;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.save-raindrop-btn:hover {
+  background: #5a2d91;
 }
 
 .download-queue {
@@ -505,6 +643,19 @@
   }
   
   .history-details {
+    justify-content: space-between;
+  }
+
+  .raindrop-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .collection-selector {
+    justify-content: space-between;
+  }
+  
+  .item-actions {
     justify-content: space-between;
   }
 }
