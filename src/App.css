@@ -1,2 +1,268 @@
-main {
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.rss-manager {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.rss-manager h1 {
+  text-align: center;
+  color: #333;
+  margin-bottom: 30px;
+}
+
+.feed-form {
+  margin-bottom: 30px;
+}
+
+.input-group {
+  display: flex;
+  gap: 10px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.feed-input {
+  flex: 1;
+  padding: 12px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+.feed-input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.fetch-btn {
+  padding: 12px 24px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.fetch-btn:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.fetch-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.error {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 12px;
+  border-radius: 8px;
+  margin: 20px 0;
+  border: 1px solid #f5c6cb;
+}
+
+.feed-items {
+  margin: 30px 0;
+}
+
+.feed-items h2 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.feed-item {
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 20px;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: box-shadow 0.2s;
+}
+
+.feed-item:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.feed-item h3 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.description {
+  color: #666;
+  margin: 10px 0;
+  line-height: 1.5;
+}
+
+.pub-date {
+  color: #888;
+  font-size: 14px;
+  margin: 10px 0;
+}
+
+.file-info {
+  background: #f8f9fa;
+  padding: 10px;
+  border-radius: 6px;
+  margin: 10px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.file-type {
+  background: #007bff;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.download-btn {
+  padding: 6px 12px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.download-btn:hover:not(:disabled) {
+  background: #218838;
+}
+
+.download-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.view-link {
+  color: #007bff;
+  text-decoration: none;
+  font-size: 14px;
+  display: inline-block;
+  margin-top: 10px;
+}
+
+.view-link:hover {
+  text-decoration: underline;
+}
+
+.download-queue {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 30px;
+}
+
+.download-queue h2 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.queue-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.queue-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  border-left: 4px solid #6c757d;
+}
+
+.queue-item.queued {
+  border-left-color: #ffc107;
+}
+
+.queue-item.downloading {
+  border-left-color: #007bff;
+}
+
+.queue-item.completed {
+  border-left-color: #28a745;
+}
+
+.queue-item.failed {
+  border-left-color: #dc3545;
+}
+
+.queue-title {
+  flex: 1;
+  font-weight: 500;
+}
+
+.queue-status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  margin: 0 10px;
+}
+
+.queue-item.queued .queue-status {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.queue-item.downloading .queue-status {
+  background: #cce5ff;
+  color: #004085;
+}
+
+.queue-item.completed .queue-status {
+  background: #d4edda;
+  color: #155724;
+}
+
+.queue-item.failed .queue-status {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.start-download {
+  padding: 6px 12px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.start-download:hover {
+  background: #0056b3;
+}
+
+.error-msg {
+  color: #dc3545;
+  font-size: 12px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
