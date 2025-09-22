@@ -1,0 +1,48 @@
+Set up your application
+
+Cybersoulja/sheets
+
+Name your application
+Project name
+
+
+Build & deploy commands
+Build command
+
+Optional
+
+Deploy command
+
+
+Required
+
+Builds
+ for non-production branches
+
+Advanced settings
+Non-production branch deploy command
+Non-production branch deploy command
+
+Optional
+
+Root directory
+Path
+
+
+API Token
+API Token
+
+➕ Create new token
+
+Token name
+
+
+A new token will be created automatically
+
+Build variables
+Variable name
+
+Value
+
+Support
+System Status
